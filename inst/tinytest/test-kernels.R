@@ -1,5 +1,8 @@
+# plan_update_sequence ---------------------------------------------------------
 
-# kernel_unif ------------------------------------------------------------------
+set.seed(1313)
+x <- rgamma(5e2, shape = .1, rate = 2)
+f <- function(p) sum(dgamma(x, shape = p[1], rate = p[2], log = TRUE))
 
 # Wild
 lb <- -1
@@ -7,190 +10,77 @@ ub <- .5
 k  <- kernel_unif(min. = lb, max. = ub)
 N  <- 5e3
 
-ans <- numeric(N)
+set.seed(1)
+expect_error({
+  suppressWarnings(MCMC(
+    c(.5, .5), f, nsteps = 2000,
+    kernel = kernel_normal_reflective(
+      lb = 0, fixed = c(TRUE, FALSE), scheme = c(1, 2)), burnin = 1000,
+    nchains = 2L
+    ))},
+  "not be fixed")
 
 set.seed(1)
-ans <- local({
-  theta0 <- 0
-  theta1 <- 0
-  nsteps <- N
-  f <- function(p) dunif(p, log=TRUE, min = lb, max = ub)
-  for (i in 1:N) {
-    ans[i] <- k$proposal(environment())
-  }
-  
-  ans
-})
+expect_error({
+  suppressWarnings(MCMC(
+    c(.5, .5), f, nsteps = 2000,
+    kernel = kernel_normal_reflective(
+      lb = 0, fixed = c(TRUE, TRUE)), burnin = 1000,
+    nchains = 2L
+  ))},
+  "cannot be zero")
 
-expect_equal(mean(ans), (lb + ub)/2, .025)
+ans0 <- fmcmc:::plan_update_sequence(2, 20000, c(FALSE, FALSE), "random")
+expect_equal(colMeans(ans0), c(.5,.5), tol = .05)
 
-# Fixed parameters
-k  <- kernel_unif(min. = lb, max. = ub, fixed = c(FALSE, TRUE, FALSE))
-N  <- 5e3
+# Testing errors ---------------------------------------------------------------
 
-ans <- matrix(nrow = N, ncol = 3)
-
+# Wrong length of parameters
+k <- kernel_unif(fixed = c(TRUE, TRUE))
 set.seed(1)
-ans <- local({
-  theta0 <- c(0, 0, 0)
-  theta1 <- c(0, 0, 0)
-  nsteps <- N
-  f <- function(p) sum(dunif(p, log=TRUE, min = lb, max = ub))
-  for (i in 1:N) {
-    ans[i,] <- k$proposal(environment())
-  }
-  
-  ans
-})
+expect_error({
+  ans <- local({
+    theta0 <- c(0, 0, 0)
+    theta1 <- theta0
+    nsteps <- N
+    for (i in 1:N) {
+      ans[i,] <- k$proposal(environment())
+    }
+    
+    ans
+  })
+}, "length of")
 
-expect_true(all(ans[,2] == 0))
-expect_equal(colMeans(ans), c((lb + ub)/2, 0, (lb + ub)/2), .025)
-
-# kernel_unif ------------------------------------------------------------------
-
-# Wild
-lb <- -1
-ub <- .5
-k  <- kernel_unif(min. = lb, max. = ub, scheme = "ordered")
-N  <- 5e3
-
-ans <- numeric(N)
-
+# Wrong length of scheme
+k <- kernel_unif(fixed = c(TRUE, TRUE), scheme = c(1,2,3))
 set.seed(1)
-ans <- local({
-  theta0 <- 0
-  theta1 <- 0
-  nsteps <- N
-  f <- function(p) dunif(p, log=TRUE, min = lb, max = ub)
-  for (i in 1:N) {
-    ans[i] <- k$proposal(environment())
-  }
-  
-  ans
-})
+expect_error({
+  ans <- local({
+    theta0 <- c(0, 0)
+    theta1 <- theta0
+    nsteps <- N
+    for (i in 1:N) {
+      ans[i,] <- k$proposal(environment())
+    }
+    
+    ans
+  })
+}, "same length as")
 
-expect_equal(mean(ans), (lb + ub)/2, .025)
 
-# Fixed parameters
-k  <- kernel_unif(min. = lb, max. = ub, fixed = c(FALSE, TRUE, FALSE),
-                       scheme = "ordered")
+# Creating kernels -------------------------------------------------------------
 
-ans <- matrix(nrow = N, ncol = 3)
+expect_error(kernel_new(function(e,b) {}), "single argument")
+expect_error(kernel_new(function(e) {}, logratio = function(a,e) {}), "single argument")
 
-set.seed(1)
-ans <- local({
-  theta0 <- c(0, 0, 0)
-  theta1 <- c(0, 0, 0)
-  nsteps <- N
-  f <- function(p) sum(dunif(p, log=TRUE, min = lb, max = ub))
-  for (i in 1:N) {
-    ans[i,] <- k$proposal(environment())
-  }
-  
-  ans
-})
+# Plan schedule ----------------------------------------------------------------
 
-expect_true(all(ans[,2] == 0))
-even <- which((1:N %% 2) == 0)
-odd  <- setdiff(1:N, even)
-expect_equal(mean(ans[odd,1]), (lb + ub)/2, .025)
-expect_equal(mean(ans[even,3]), (lb + ub)/2, .025)
+expect_error(
+  MCMC(c(.1,.1), f, 1e3, kernel = kernel_normal(scheme = c(1L, 3L))),
+  "included in"
+)
 
-# kernel_normal ----------------------------------------------------------------
-
-# Wild
-lb <- -1
-ub <- .5
-k  <- kernel_normal(mu = 10, scale = 1.5)
-N  <- 1e4
-
-ans <- numeric(N)
-
-set.seed(1)
-ans <- local({
-  theta0 <- 0
-  theta1 <- 0
-  nsteps <- N
-  f <- function(p) dunif(p, log=TRUE, min = lb, max = ub)
-  for (i in 1:N) {
-    ans[i] <- k$proposal(environment())
-  }
-  
-  ans
-})
-
-expect_equal(mean(ans), 10, .025)
-expect_equal(sd(ans), 1.5, .025)
-
-# Reflective 1
-lb <- -1
-ub <- .5
-k  <- kernel_normal_reflective(mu = 10, scale = 5, lb = -.5, ub = 2)
-N  <- 2e3
-
-ans <- numeric(N)
-
-set.seed(1)
-ans <- local({
-  theta0 <- 0
-  theta1 <- 0
-  nsteps <- N
-  for (i in 1:N) {
-    ans[i] <- k$proposal(environment())
-  }
-  
-  ans
-})
-
-expect_equal(range(ans), c(-.5, 2), .025)
-
-# Reflective 2
-lb <- c(-1, 0)
-ub <- c(10, 1)
-k  <- kernel_normal_reflective(mu = 0, scale = 5, lb = lb, ub = ub)
-N  <- 2e3
-
-ans <- matrix(nrow = N, ncol = 2)
-
-set.seed(1)
-ans <- local({
-  theta0 <- c(0,0)
-  theta1 <- theta0
-  nsteps <- N
-  for (i in 1:N) {
-    ans[i,] <- k$proposal(environment())
-  }
-  
-  ans
-})
-
-expect_equal(range(ans[,2]), c(lb[2], ub[2]), tol = .025)
-expect_equal(range(ans[,1]), c(lb[1], ub[1]), tol = .025)
-
-# Reflective 1by1
-lb <- c(-1, 0)
-ub <- c(10, 1)
-k  <- kernel_normal_reflective(mu = 0, scale = 5, lb = lb, ub = ub, scheme = "ordered")
-N  <- 2e3
-
-ans <- matrix(nrow = N, ncol = 2)
-
-set.seed(1)
-ans <- local({
-  theta0 <- c(0,0)
-  theta1 <- theta0
-  nsteps <- N
-  for (i in 1:N) {
-    ans[i,] <- k$proposal(environment())
-  }
-  
-  ans
-})
-
-even <- which((1:N %% 2) == 0)
-odd  <- setdiff(1:N, even)
-
-expect_true(all(ans[even,1] == 0))
-expect_true(all(ans[odd,2] == 0))
-expect_equal(range(ans[,2]), c(lb[2], ub[2]), tol = .025)
-expect_equal(range(ans[,1]), c(lb[1], ub[1]), tol = .025)
+expect_error(
+  MCMC(c(.1,.1), f, 1e3, kernel = kernel_normal(scheme = "what?")),
+  "either an integer"
+)

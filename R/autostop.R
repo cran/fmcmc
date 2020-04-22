@@ -182,7 +182,8 @@ convergence_auto <- function(freq = 1000L) {
   
   structure(function(x) {
     
-    if (as.character(sys.call(-1L)[[1]]) != "with_autostop") {
+    who <- as.character(sys.call(-1L)[[1]])
+    if (is.null(who) | (who != "with_autostop")) {
       warning("This function should not be used in a context other than ",
               "the argument `conv_checker` in `MCMC`.")
       
@@ -204,7 +205,9 @@ convergence_auto <- function(freq = 1000L) {
 #' @noRd
 #' @param expr The expression to parse
 #' @param conv_checker A function to be used as a convergence checker.
-with_autostop <- function(expr, conv_checker) {
+#' @param free_params An integer indicating the set of parameters of the
+#' chain that should be considered in the model.
+with_autostop <- function(expr, conv_checker, free_params) {
   
   # Getting the parent environment
   freq   <- attr(conv_checker, "freq")
@@ -223,8 +226,12 @@ with_autostop <- function(expr, conv_checker) {
   
   # Calculating lengths. The bulk vector sets what will be
   # nsteps in each call. This excludes burnin
-  bulks <- rep(freq, (nsteps - parenv$burnin) %/% freq)
-  if ((nsteps - parenv$burnin) %% freq)
+  bulks <- if (freq > 0L)
+    rep(freq, (nsteps - parenv$burnin) %/% freq)
+  else
+    nsteps
+    
+  if (freq > 0 && (nsteps - parenv$burnin) %% freq)
     bulks <- c(bulks, (nsteps - parenv$burnin) - sum(bulks))
   
   # We need to add the burnin to the first
@@ -254,12 +261,17 @@ with_autostop <- function(expr, conv_checker) {
     # Appending retults
     ans <- append_chains(ans, tmp)
     
-    if ((converged <- conv_checker(ans))) {
+    if ((converged <- conv_checker(ans[, free_params, drop = FALSE]))) {
       message(
         "Convergence has been reached with ", sum(bulks[1:i]), " steps (",
         coda::niter(ans), " final count of samples)."
         )
       break
+    } else {
+      message(
+        "No convergence yet (steps count: ", sum(bulks[1:i]), "). ",
+        "Trying with the next bulk."
+      )
     }
     
   }

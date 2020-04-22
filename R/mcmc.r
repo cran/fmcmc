@@ -18,7 +18,12 @@
 #' @param conv_checker A function that receives an object of class [coda::mcmc.list],
 #' and returns a logical value with `TRUE` indicating convergence. See the
 #' "Automatic stop" section and the [convergence-checker] manual.
-#' @param progress Logical scalar (currently ignored).
+#' @param progress Logical scalar. When set to `TRUE` shows a progress bar. A new
+#' bar will be show every time that the convergence checker is called.
+#' @param chain_id Integer scalar (internal use only). This is an argument
+#' passed to the kernel function and it allows it identify in which of the
+#' chains the process is taking place. This could be relevant for some kernels
+#' (see [kernel_new()]).
 #' 
 #' @details This function implements MCMC using the Metropolis-Hastings ratio with
 #' flexible transition kernels. Users can specify either one of the available
@@ -80,15 +85,17 @@
 #' by the convergence checker function, and thus the algorithm will stop if,
 #' the `conv_checker` returns `TRUE`. For more information see [convergence-checker].
 #' 
-#' @return An object of class [coda::mcmc] from the \CRANpkg{coda}
+#' @section Value:
+#' An object of class [coda::mcmc] from the \CRANpkg{coda}
 #' package. The \code{mcmc} object is a matrix with one column per parameter,
 #' and \code{nsteps} rows. If \code{nchains > 1}, then it returns a [coda::mcmc.list].
-#' 
+#'    
 #' @references 
 #' Brooks, S., Gelman, A., Jones, G. L., & Meng, X. L. (2011). Handbook of
 #' Markov Chain Monte Carlo. Handbook of Markov Chain Monte Carlo.
 #' 
 #' @export
+#'  
 #' @examples 
 #' # Univariate distributed data with multiple parameters ----------------------
 #' # Parameters
@@ -219,7 +226,8 @@ MCMC <- function(
   multicore    = FALSE,
   conv_checker = NULL, 
   cl           = NULL,
-  progress     = interactive()
+  progress     = interactive() && !multicore,
+  chain_id     = 1L
 ) UseMethod("MCMC")
 
 #' @export
@@ -236,7 +244,8 @@ MCMC.mcmc <- function(
   multicore    = FALSE,
   conv_checker = NULL, 
   cl           = NULL,
-  progress     = interactive() && !multicore
+  progress     = interactive() && !multicore,
+  chain_id     = 1L
 ) {
   
   MCMC.default(
@@ -251,7 +260,8 @@ MCMC.mcmc <- function(
     multicore    = multicore,
     conv_checker = conv_checker,
     cl           = cl,
-    progress     = progress
+    progress     = progress,
+    chain_id     = chain_id
   )
   
 }
@@ -270,7 +280,8 @@ MCMC.mcmc.list <- function(
   multicore    = FALSE,
   conv_checker = NULL, 
   cl           = NULL,
-  progress     = interactive() && !multicore
+  progress     = interactive() && !multicore,
+  chain_id     = 1L
 ) {
   
   if (nchains != length(initial))
@@ -291,7 +302,8 @@ MCMC.mcmc.list <- function(
     multicore    = multicore,
     conv_checker = conv_checker,
     cl           = cl,
-    progress     = progress
+    progress     = progress,
+    chain_id     = chain_id
   )
   
 }
@@ -312,7 +324,8 @@ MCMC.default <- function(
   multicore    = FALSE,
   conv_checker = NULL, 
   cl           = NULL,
-  progress     = interactive() && !multicore
+  progress     = interactive() && !multicore,
+  chain_id     = 1L
   ) {
   
   # # if the coda package hasn't been loaded, then return a warning
@@ -340,6 +353,13 @@ MCMC.default <- function(
   if (thin < 1L)
     stop("-thin- should be >= 1.", call. = FALSE)
   
+  # If we are running in multiple chains, and this is not a kernel_list
+  # object, then we need to replicate it. This will modify the original kernel
+  # object creating a new environment with `nchains` copies of the original
+  # kernel.
+  if (nchains > 1L && !is_kernel_list(kernel))
+    rep_kernel(kernel, nchains = nchains)
+
   # Filling the gap on parallel
   if (multicore && !length(cl)) {
     
@@ -353,7 +373,12 @@ MCMC.default <- function(
     parallel::clusterSetRNGStream(cl, .Random.seed)
     
     on.exit(parallel::stopCluster(cl))
-  }
+    
+  } 
+    
+  # We need to pass an copy of what nchain will be used in the algorithm
+  if (length(cl))
+    parallel::clusterExport(cl, "kernel", envir = environment())
   
   if (nchains > 1L) {
     
@@ -365,30 +390,28 @@ MCMC.default <- function(
         else 
           list(quote(lapply), X = quote(1L:nchains)),
         list(
-          FUN = quote(function(
-            i, fun., initial., nsteps., thin., kernel., burnin., ...) {
-          
-          MCMC(
-            fun          = fun.,
-            ...,
-            initial      = initial.[i, , drop = FALSE],
-            nsteps       = nsteps.,
-            burnin       = burnin.,
-            thin         = thin.,
-            kernel       = kernel.,
-            nchains      = 1L,
-            multicore    = FALSE,
-            cl           = NULL,
-            conv_checker = NULL
-            )
-          
+          FUN = quote(
+            function(i, fun., initial., nsteps., thin., burnin., ...) {
+              MCMC(
+                fun          = fun.,
+                ...,
+                initial      = initial.[i, , drop = FALSE],
+                nsteps       = nsteps.,
+                burnin       = burnin.,
+                thin         = thin.,
+                kernel       = kernel[[i]],
+                nchains      = 1L,
+                multicore    = FALSE,
+                cl           = NULL,
+                conv_checker = NULL,
+                chain_id     = i
+                )
         }),
         fun.     = quote(fun),
         initial. = quote(initial),
         nsteps.  = quote(nsteps),
         burnin.  = quote(burnin),
         thin.    = quote(thin),
-        kernel.  = quote(kernel),
         quote(...)
         )
       )
@@ -411,6 +434,7 @@ MCMC.default <- function(
     fmcmc_call$thin         <- quote(thin)
     fmcmc_call$burnin       <- quote(burnin)
     fmcmc_call$conv_checker <- enquote(NULL)
+    fmcmc_call$chain_id     <- enquote(1L)
     
   }
   
@@ -419,20 +443,50 @@ MCMC.default <- function(
   # chains
   if (!is.null(conv_checker)) {
     
+    # Checking the set of free parameters
+    free_params <- if (inherits(kernel, "fmcmc_kernel_list"))
+      kernel[[1]]$fixed
+    else
+      kernel$fixed
+    
+    if (is.null(free_params))
+      free_params <- seq_along(initial)
+    else
+      free_params <- which(!free_params)
+    
     fmcmc_call <- call(
       "with_autostop",
       fmcmc_call,
-      conv_checker = quote(conv_checker)
+      conv_checker = quote(conv_checker), 
+      free_params  = free_params
       )
     
     ans <- eval(fmcmc_call)
+    
+    # Need to update the kernel objects, if we were running in parallel!
+    if (multicore) {
+      kernel_list <- parallel::clusterEvalQ(cl, kernel)
+      kernel_list <- lapply(1:nchains, function(i) kernel_list[[i]][[i]])
+      update_kernel(kernel, do.call(c, kernel_list))
+    }
+    
     return(ans)
     
   # If we are not using conv_checker, but still have multiple chains, then
   # we still have to run this somewhat recursively.
   } else if (nchains > 1L) {
+    
     ans <- eval(fmcmc_call)
+    
+    # Need to update the kernel objects, if we were running in parallel!
+    if (multicore) {
+      kernel_list <- parallel::clusterEvalQ(cl, kernel)
+      kernel_list <- lapply(1:nchains, function(i) kernel_list[[i]][[i]])
+      update_kernel(kernel, do.call(c, kernel_list))
+    }
+    
     return(ans)
+    
   }
   
   # Adding names
@@ -496,11 +550,15 @@ MCMC.default <- function(
   ans <- matrix(ncol = length(initial), nrow = nsteps,
                 dimnames = list(1:nsteps, cnames))
   
+  if (progress)
+    progress_bar <- new_progress_bar(nsteps)
+  
   for (i in 1L:nsteps) {
+
     # Step 1. Propose
     theta1[] <- kernel$proposal(environment())
     f1       <- f(theta1)
-    
+
     # Checking f(theta1) (it must be a number, can be Inf)
     if (is.nan(f1) | is.na(f1) | is.null(f1)) 
       stop(
@@ -521,6 +579,9 @@ MCMC.default <- function(
       
     # Step 3. Saving the state
     ans[i,] <- theta0
+    
+    if (progress)
+      progress_bar(i)
     
   }
   

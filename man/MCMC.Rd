@@ -8,24 +8,69 @@
 \alias{MCMC.default}
 \title{Markov Chain Monte Carlo}
 \usage{
-MCMC(initial, fun, nsteps, ..., nchains = 1L, burnin = 0L, thin = 1L,
-  kernel = kernel_normal(), multicore = FALSE, conv_checker = NULL,
-  cl = NULL, progress = interactive())
+MCMC(
+  initial,
+  fun,
+  nsteps,
+  ...,
+  nchains = 1L,
+  burnin = 0L,
+  thin = 1L,
+  kernel = kernel_normal(),
+  multicore = FALSE,
+  conv_checker = NULL,
+  cl = NULL,
+  progress = interactive() && !multicore,
+  chain_id = 1L
+)
 
-\method{MCMC}{mcmc}(initial, fun, nsteps, ..., nchains = 1L,
-  burnin = 0L, thin = 1L, kernel = kernel_normal(),
-  multicore = FALSE, conv_checker = NULL, cl = NULL,
-  progress = interactive() && !multicore)
+\method{MCMC}{mcmc}(
+  initial,
+  fun,
+  nsteps,
+  ...,
+  nchains = 1L,
+  burnin = 0L,
+  thin = 1L,
+  kernel = kernel_normal(),
+  multicore = FALSE,
+  conv_checker = NULL,
+  cl = NULL,
+  progress = interactive() && !multicore,
+  chain_id = 1L
+)
 
-\method{MCMC}{mcmc.list}(initial, fun, nsteps, ..., nchains = 1L,
-  burnin = 0L, thin = 1L, kernel = kernel_normal(),
-  multicore = FALSE, conv_checker = NULL, cl = NULL,
-  progress = interactive() && !multicore)
+\method{MCMC}{mcmc.list}(
+  initial,
+  fun,
+  nsteps,
+  ...,
+  nchains = 1L,
+  burnin = 0L,
+  thin = 1L,
+  kernel = kernel_normal(),
+  multicore = FALSE,
+  conv_checker = NULL,
+  cl = NULL,
+  progress = interactive() && !multicore,
+  chain_id = 1L
+)
 
-\method{MCMC}{default}(initial, fun, nsteps, ..., nchains = 1L,
-  burnin = 0L, thin = 1L, kernel = kernel_normal(),
-  multicore = FALSE, conv_checker = NULL, cl = NULL,
-  progress = interactive() && !multicore)
+\method{MCMC}{default}(
+  initial,
+  fun,
+  nsteps,
+  ...,
+  nchains = 1L,
+  burnin = 0L,
+  thin = 1L,
+  kernel = kernel_normal(),
+  multicore = FALSE,
+  conv_checker = NULL,
+  cl = NULL,
+  progress = interactive() && !multicore,
+  chain_id = 1L
+)
 }
 \arguments{
 \item{initial}{Either a numeric matrix or vector, or an object of class \link[coda:mcmc]{coda::mcmc}
@@ -55,12 +100,13 @@ and returns a logical value with \code{TRUE} indicating convergence. See the
 
 \item{cl}{A \code{cluster} object passed to \link[parallel:clusterApply]{parallel::clusterApply}.}
 
-\item{progress}{Logical scalar (currently ignored).}
-}
-\value{
-An object of class \link[coda:mcmc]{coda::mcmc} from the \CRANpkg{coda}
-package. The \code{mcmc} object is a matrix with one column per parameter,
-and \code{nsteps} rows. If \code{nchains > 1}, then it returns a \link[coda:mcmc.list]{coda::mcmc.list}.
+\item{progress}{Logical scalar. When set to \code{TRUE} shows a progress bar. A new
+bar will be show every time that the convergence checker is called.}
+
+\item{chain_id}{Integer scalar (internal use only). This is an argument
+passed to the kernel function and it allows it identify in which of the
+chains the process is taking place. This could be relevant for some kernels
+(see \code{\link[=kernel_new]{kernel_new()}}).}
 }
 \description{
 A flexible implementation of the Metropolis-Hastings MCMC algorithm.
@@ -130,6 +176,13 @@ By default, no automatic stop is implemented. If one of the functions in
 \link{convergence-checker} is used, then the MCMC is done by bulks as specified
 by the convergence checker function, and thus the algorithm will stop if,
 the \code{conv_checker} returns \code{TRUE}. For more information see \link{convergence-checker}.
+}
+
+\section{Value}{
+
+An object of class \link[coda:mcmc]{coda::mcmc} from the \CRANpkg{coda}
+package. The \code{mcmc} object is a matrix with one column per parameter,
+and \code{nsteps} rows. If \code{nchains > 1}, then it returns a \link[coda:mcmc.list]{coda::mcmc.list}.
 }
 
 \examples{
