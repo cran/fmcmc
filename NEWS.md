@@ -1,3 +1,26 @@
+# fmcmc 0.4-0
+
+* `kernel_am` and `kernel_ram` no longer fail when at least one parameter is
+  an offset (`fixed = TRUE` for some parameter).
+
+* Now `kernel_ram` tries first to find the cholesky decomp. If it fails, then
+  it uses `Matrix::nearPD` and re-tries. This is following what is done in the
+  `adaptMCMC` package.
+
+* Workflow for running MCMC with `conv_checker` re-designed (less error prone).
+
+* Environments `LAST_MCMC` and `LAST_CONV_CHECK` provide information about the
+  last call to `MCMC` and the corresponding convergence checker. Users can
+  access these environments via getter and setter functions.
+  
+* `MCMC` with convergence checker now reports the status of the convergence
+  statistic using the `LAST_CONV_CHECK` environment and corresponding
+  functions.
+  
+* The functions to compute mean and variance recursively now allow us to do so
+  using windows.
+  
+
 # fmcmc 0.3-0
 
 * Adding Vihola (2012)'s Robust Adaptive Metropolis, Haario et al. (2001)'s

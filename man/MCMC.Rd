@@ -3,9 +3,8 @@
 \name{MCMC}
 \alias{MCMC}
 \alias{Metropolis-Hastings}
-\alias{MCMC.mcmc}
-\alias{MCMC.mcmc.list}
-\alias{MCMC.default}
+\alias{MCMC_without_conv_checker}
+\alias{MCMC_with_conv_checker}
 \title{Markov Chain Monte Carlo}
 \usage{
 MCMC(
@@ -24,7 +23,7 @@ MCMC(
   chain_id = 1L
 )
 
-\method{MCMC}{mcmc}(
+MCMC_without_conv_checker(
   initial,
   fun,
   nsteps,
@@ -40,36 +39,20 @@ MCMC(
   chain_id = 1L
 )
 
-\method{MCMC}{mcmc.list}(
+MCMC_with_conv_checker(
   initial,
   fun,
   nsteps,
   ...,
-  nchains = 1L,
-  burnin = 0L,
-  thin = 1L,
-  kernel = kernel_normal(),
-  multicore = FALSE,
-  conv_checker = NULL,
-  cl = NULL,
-  progress = interactive() && !multicore,
-  chain_id = 1L
-)
-
-\method{MCMC}{default}(
-  initial,
-  fun,
-  nsteps,
-  ...,
-  nchains = 1L,
-  burnin = 0L,
-  thin = 1L,
-  kernel = kernel_normal(),
-  multicore = FALSE,
-  conv_checker = NULL,
-  cl = NULL,
-  progress = interactive() && !multicore,
-  chain_id = 1L
+  nchains,
+  burnin,
+  thin,
+  kernel,
+  multicore,
+  conv_checker,
+  cl,
+  progress,
+  chain_id
 )
 }
 \arguments{
@@ -109,17 +92,23 @@ chains the process is taking place. This could be relevant for some kernels
 (see \code{\link[=kernel_new]{kernel_new()}}).}
 }
 \description{
-A flexible implementation of the Metropolis-Hastings MCMC algorithm.
+A flexible implementation of the Metropolis-Hastings MCMC algorithm, users
+can utilize arbitrary transition kernels as well as set-up an automatic
+stop criterion using a convergence check test.
 }
 \details{
-This function implements MCMC using the Metropolis-Hastings ratio with
+This function implements Markov Chain Monte Carlo (MCMC) using the
+Metropolis-Hastings ratio with
 flexible transition kernels. Users can specify either one of the available
 transition kernels or define one of their own (see \link{kernels}). Furthermore,
-it allows easy parallel implementation running multiple chains in parallel. In
-addition, we incorporate a variety of convergence diagnostics, alternatively
-the user can specify their own (see \link{convergence-checker}).
+it allows easy parallel implementation running multiple chains in parallel.
+The function also allows using convergence diagnostics tests to set-up a
+criterion for automatically stopping the algorithm  (see \link{convergence-checker}).
 
 We now give details of the various options included in the function.
+
+The functions \code{MCMC_without_conv_checker} and \code{MCMC_with_conv_checker}
+should not be directly called by the user. These are for internal use only.
 }
 \section{Starting point}{
 
@@ -140,7 +129,7 @@ with as many rows as chains, and as many columns as parameters in the model.
 
 When \code{nchains > 1}, the function will run multiple chains. Furthermore,
 if \code{cl} is not passed, \code{MCMC} will create a \code{PSOCK} cluster
-using \link[parallel:makePSOCKcluster]{parallel::makePSOCKcluster} with
+using \code{\link[parallel:makeCluster]{makePSOCKcluster}} with
 \link[parallel:detectCores]{parallel::detectCores}
 clusters and attempt to execute using multiple cores. Internally, the function does
 the following:

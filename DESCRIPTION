@@ -1,6 +1,7 @@
 Package: fmcmc
 Title: A friendly MCMC framework
-Version: 0.3-0
+Version: 0.4-0
+Date: 2020-09-01
 Authors@R: c(person("George", "Vega Yon", email = "g.vegayon@gmail.com", role =
          c("aut", "cre"), comment = c(ORCID = "0000-0002-3171-0844")),
          person("Paul", "Marjoram", email = "pmarjora@usc.edu", role = c("ctb",
@@ -26,11 +27,11 @@ LazyData: true
 URL: https://github.com/USCbiostats/fmcmc
 BugReports: https://github.com/USCbiostats/fmcmc/issues
 Suggests: covr, knitr, rmarkdown, mcmc, tinytest, mvtnorm, adaptMCMC
-Imports: parallel, coda, stats, methods, MASS
-RoxygenNote: 7.0.2
+Imports: parallel, coda, stats, methods, MASS, Matrix
+RoxygenNote: 7.1.1
 VignetteBuilder: knitr
 NeedsCompilation: no
-Packaged: 2020-04-22 18:01:57 UTC; george
+Packaged: 2020-09-01 19:32:14 UTC; george
 Author: George Vega Yon [aut, cre] (<https://orcid.org/0000-0002-3171-0844>),
   Paul Marjoram [ctb, ths] (<https://orcid.org/0000-0003-0824-7449>),
   National Cancer Institute (NCI) [fnd] (Grant Number 5P01CA196569-02),
@@ -38,4 +39,4 @@ Author: George Vega Yon [aut, cre] (<https://orcid.org/0000-0002-3171-0844>),
     <https://orcid.org/0000-0001-8172-3603>)
 Maintainer: George Vega Yon <g.vegayon@gmail.com>
 Repository: CRAN
-Date/Publication: 2020-04-23 00:14:15 UTC
+Date/Publication: 2020-09-01 21:10:03 UTC
