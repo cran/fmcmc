@@ -56,7 +56,7 @@ out <- MCMC(
 )
 
 ## ----estimation2.0------------------------------------------------------------
-# Now we change the seed so we get a different stream of
+# Now, we change the seed, so we get a different stream of
 # pseudo random numbers
 set.seed(112) 
 
@@ -87,7 +87,7 @@ khaario$Sigma
 ## ----haario-first-run---------------------------------------------------------
 set.seed(12) 
 
-out_harrio_1 <- MCMC(
+out_haario_1 <- MCMC(
   initial   = out,                       
   fun       = lupost, 
   nsteps    = 1000,    # We will only run the chain for 100 steps                    
@@ -98,7 +98,7 @@ out_harrio_1 <- MCMC(
   )
 
 ## ----haario-first-run-plots---------------------------------------------------
-traceplot(out_harrio_1[,1], main = "Traceplot of the first parameter")
+traceplot(out_haario_1[,1], main = "Traceplot of the first parameter")
 abline(v = 500, col = "red", lwd = 2, lty=2)
 
 ## ----haario-second-inspect----------------------------------------------------
@@ -109,18 +109,19 @@ khaario$abs_iter
 (Sigma1 <- khaario$Sigma)
 
 ## ----haario-second-run--------------------------------------------------------
-out_harrio_2 <- MCMC(
-  initial   = out_harrio_1,
+out_haario_2 <- MCMC(
+  initial   = out_haario_1,
   fun       = lupost, 
   nsteps    = 2000,    # We will only run the chain for 2000 steps now
   kernel    = khaario, # Same as before, same kernel.
   thin      = 1,       
   nchains   = 1L,      
-  multicore = FALSE    
+  multicore = FALSE,
+  seed      = 555      # We can also specify the seed in the MCMC function    
   )
 
 ## ----haario-second-run-plots--------------------------------------------------
-traceplot(out_harrio_2[,1], main = "Traceplot of the first parameter")
+traceplot(out_haario_2[,1], main = "Traceplot of the first parameter")
 abline(v = 500, col = "red", lwd = 2, lty=2)
 
 ## ----haario-third-inspect-----------------------------------------------------
@@ -131,6 +132,27 @@ khaario$abs_iter
 # Variance covariance matrix (now is not empty)
 (Sigma2 <- khaario$Sigma)
 
-# How different these are?
+# How different are these?
 Sigma1 - Sigma2
+
+## ----get-logpost-draws--------------------------------------------------------
+plot(get_logpost(), type="l")
+
+# Pretty figure showing proposed and accepted
+plot(
+  get_draws()[,1:2], pch = 20, col = "gray",
+  main = "Haario's second run"
+  )
+points(out_haario_2[,1:2], col = "red", pch = 20)
+legend(
+  "topleft", legend = c("proposed", "accepted"),
+  col = c("gray", "red"),
+  pch = 20,
+  bty = "n"
+)
+
+## ----get-arguments------------------------------------------------------------
+get_initial()
+get_fun()
+get_kernel()
 
