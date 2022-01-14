@@ -1,3 +1,10 @@
+# fmcmc 0.5-1
+
+* Fixed issue #21: Restricting search scope in MCMC temp environment data.
+
+* Removed annoying warning when using convergence checker.
+
+
 # fmcmc 0.5-0
 
 * The function `fun` passed to `MCMC` is now called two times less. It shouldn't
